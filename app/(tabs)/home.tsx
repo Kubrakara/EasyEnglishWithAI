@@ -1,135 +1,71 @@
 import { COLORS } from "@/theme";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-type PhrasalVerb = {
-  id: string;
-  verb: string;
-  meaning: string;
-  example: string;
-};
-
-export default function Home() {
-  const [loading, setLoading] = useState(true);
-  const [phrasal, setPhrasal] = useState<PhrasalVerb | null>(null);
-  const [favorited, setFavorited] = useState(false);
-
-  // TODO: Backend’ten veri çekilecek, şimdilik sabit data
-  useEffect(() => {
-    // Simule fetch
-    setTimeout(() => {
-      setPhrasal({
-        id: "1",
-        verb: "Give up",
-        meaning: "Vazgeçmek, bırakmak",
-        example: "She decided to give up smoking.",
-      });
-      setLoading(false);
-    }, 1000);
-  }, []);
-
-  const toggleFavorite = () => {
-    setFavorited(!favorited);
-    // TODO: favori ekleme backend çağrısı yapılacak
+export default function HomeScreen() {
+  // Demo verisi
+  const phrasalVerb = {
+    verb: "Break down",
+    meaning: "To stop working (for machines) or to become very upset",
+    example: "My car broke down on the way to work.",
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  if (!phrasal) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Günlük deyim bulunamadı.</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.pageTitle}>Günün Phrasal Verb’i</Text>
-
-      <View style={styles.card}>
-        <View style={styles.headerRow}>
-          <Text style={styles.verb}>{phrasal.verb}</Text>
-          <TouchableOpacity onPress={toggleFavorite}>
-            <Ionicons
-              name={favorited ? "heart" : "heart-outline"}
-              size={28}
-              color={favorited ? COLORS.error : COLORS.textLight}
-            />
-          </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Günün Phrasal Verbi</Text>
+        <View style={styles.card}>
+          <Text style={styles.verb}>{phrasalVerb.verb}</Text>
+          <Text style={styles.meaning}>{phrasalVerb.meaning}</Text>
+          <Text style={styles.example}>Örnek: {phrasalVerb.example}</Text>
         </View>
-
-        <Text style={styles.meaning}>{phrasal.meaning}</Text>
-        <Text style={styles.example}>"{phrasal.example}"</Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   container: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    paddingTop: 24, // Üst boşluk
     paddingHorizontal: 24,
-    paddingTop: 40,
   },
-  pageTitle: {
+  title: {
     fontSize: 24,
     fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 24,
+    marginBottom: 16,
+    color: COLORS.primary,
   },
   card: {
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: COLORS.black,
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+    shadowRadius: 12,
+    elevation: 8,
   },
   verb: {
     fontSize: 28,
-    fontWeight: "700",
+    fontWeight: "800",
     color: COLORS.primary,
+    marginBottom: 12,
   },
   meaning: {
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: "500",
     color: COLORS.text,
     marginBottom: 8,
   },
   example: {
-    fontSize: 16,
+    fontSize: 14,
     fontStyle: "italic",
     color: COLORS.textLight,
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: 16,
   },
 });

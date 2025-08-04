@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -56,7 +57,7 @@ export default function PhrasalList() {
     <TouchableOpacity
       style={styles.itemContainer}
       onPress={() => {
-        /* Detay açılabilir */
+        // TODO: Detay ekranına geçilebilir
       }}
     >
       <View>
@@ -75,26 +76,35 @@ export default function PhrasalList() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <FlatList
-      data={list}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      contentContainerStyle={styles.listContainer}
-    />
+    <SafeAreaView style={styles.safeArea}>
+      <FlatList
+        data={list}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContainer}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  listContainer: {
-    padding: 16,
+  safeArea: {
+    flex: 1,
     backgroundColor: COLORS.white,
+  },
+  listContainer: {
+    paddingTop: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   itemContainer: {
     flexDirection: "row",
@@ -118,5 +128,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingTop: 48,
   },
 });

@@ -6,6 +6,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -42,14 +43,13 @@ export default function Chat() {
 
     try {
       // TODO: Backend çağrısı yapılacak
-      // Örnek dummy response ile simüle ediyoruz
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         text: "",
         isUser: false,
-        corrected: "Corrected: " + userMessage.text, // Gerçekten backend cevabı olacak
+        corrected: "Corrected: " + userMessage.text,
         explanation: "This is an explanation from AI.",
       };
 
@@ -58,7 +58,9 @@ export default function Chat() {
       alert("Bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
       setLoading(false);
-      flatListRef.current?.scrollToEnd({ animated: true });
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
   };
 
@@ -84,57 +86,65 @@ export default function Chat() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.select({ ios: "padding", android: undefined })}
-      keyboardVerticalOffset={Platform.select({ ios: 80, android: 0 })}
-    >
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messagesContainer}
-      />
-
-      <View style={styles.inputRow}>
-        <TextInput
-          value={inputText}
-          onChangeText={setInputText}
-          placeholder="İngilizce cümle yazın..."
-          placeholderTextColor={COLORS.gray}
-          style={styles.input}
-          editable={!loading}
-          multiline
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.select({ ios: "padding", android: undefined })}
+        keyboardVerticalOffset={Platform.select({ ios: 80, android: 0 })}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messagesContainer}
+          showsVerticalScrollIndicator={false}
         />
 
-        <TouchableOpacity
-          onPress={sendMessage}
-          disabled={loading || !inputText.trim()}
-          style={[
-            styles.sendButton,
-            (loading || !inputText.trim()) && styles.sendButtonDisabled,
-          ]}
-        >
-          {loading ? (
-            <ActivityIndicator color={COLORS.white} />
-          ) : (
-            <Ionicons name="send" size={24} color={COLORS.white} />
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+        <View style={styles.inputRow}>
+          <TextInput
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="İngilizce cümle yazın..."
+            placeholderTextColor={COLORS.gray}
+            style={styles.input}
+            editable={!loading}
+            multiline
+          />
+
+          <TouchableOpacity
+            onPress={sendMessage}
+            disabled={loading || !inputText.trim()}
+            style={[
+              styles.sendButton,
+              (loading || !inputText.trim()) && styles.sendButtonDisabled,
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <Ionicons name="send" size={24} color={COLORS.white} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
   },
   messagesContainer: {
-    padding: 16,
-    paddingBottom: 80, // input için boşluk
+    paddingTop: 32, // ← Buraya üst padding eklendi
+    paddingHorizontal: 16,
+    paddingBottom: 100,
   },
   messageBubble: {
     maxWidth: "80%",
@@ -172,7 +182,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.white,
-    alignItems: "center",
+    alignItems: "flex-end",
   },
   input: {
     flex: 1,
@@ -180,7 +190,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     fontSize: 16,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     backgroundColor: COLORS.lightGray,
     borderRadius: 20,
     color: COLORS.text,

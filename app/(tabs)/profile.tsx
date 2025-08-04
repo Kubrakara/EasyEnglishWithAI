@@ -1,6 +1,15 @@
 import { COLORS } from "@/theme";
 import React from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function Profile() {
   const handleLogout = () => {
@@ -9,38 +18,45 @@ export default function Profile() {
       {
         text: "Evet",
         onPress: () => {
-          /* Logout işlemi */
+          // TODO: Logout işlemi yapılacak
         },
       },
     ]);
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profil</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Profil</Text>
 
-      <View style={styles.infoBox}>
-        <Text style={styles.label}>Kullanıcı Adı:</Text>
-        <Text style={styles.value}>Kubra Kara</Text>
+        <View style={styles.infoBox}>
+          <Text style={styles.label}>Kullanıcı Adı:</Text>
+          <Text style={styles.value}>Kubra Kara</Text>
+        </View>
+
+        <View style={styles.infoBox}>
+          <Text style={styles.label}>E-posta:</Text>
+          <Text style={styles.value}>kubra@example.com</Text>
+        </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Çıkış Yap</Text>
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.infoBox}>
-        <Text style={styles.label}>E-posta:</Text>
-        <Text style={styles.value}>kubra@example.com</Text>
-      </View>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Çıkış Yap</Text>
-      </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
   container: {
     flex: 1,
-    padding: 24,
-    backgroundColor: COLORS.white,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight ?? 52 : 52,
   },
   title: {
     fontSize: 28,
