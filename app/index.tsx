@@ -1,8 +1,10 @@
 import Button from "@/components/Button";
 import { COLORS } from "@/theme";
 import { useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Image,
   ScrollView,
@@ -16,7 +18,25 @@ export default function WelcomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
+  const [showWelcomeText, setShowWelcomeText] = useState(false);
+  const welcomeTextAnim = useRef(new Animated.Value(0)).current;
+  const [loading, setLoading] = useState(true); // 🔄 Token kontrolü bitene kadar beklet
+
   useEffect(() => {
+    const checkToken = async () => {
+      const token = await SecureStore.getItemAsync("token");
+      if (token) {
+        router.replace("/home");
+      } else {
+        setLoading(false); // token yoksa animasyon başlasın
+        startAnimations();
+      }
+    };
+
+    checkToken();
+  }, []);
+
+  const startAnimations = () => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -25,14 +45,34 @@ export default function WelcomeScreen() {
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        speed: 100,
+        speed: 12,
+        bounciness: 8,
         useNativeDriver: true,
       }),
-    ]).start();
-  }, []);
+    ]).start(() => {
+      setShowWelcomeText(true);
+      Animated.timing(welcomeTextAnim, {
+        toValue: 1,
+        duration: 700,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.background}>
+    <ScrollView
+      contentContainerStyle={styles.background}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.card}>
         {/* Logo ve Başlık */}
         <View style={styles.header}>
@@ -47,24 +87,39 @@ export default function WelcomeScreen() {
             <Image
               source={require("assets/images/logo.png")}
               style={styles.logo}
+              resizeMode="contain"
             />
           </Animated.View>
           <Text style={styles.title}>Easy English</Text>
-          <Text style={styles.subtitle}>
-            Yapay zeka destekli İngilizce öğrenme platformuna hoş geldiniz!
-          </Text>
+          <Text style={styles.slogan}>İngilizce öğrenmenin en kolay yolu!</Text>
         </View>
 
-        {/* Açıklama */}
-        <View style={styles.description}>
-          <Text style={styles.descText}>
-            Hızlı ve etkili bir şekilde İngilizce öğrenmeye başlayın.
-          </Text>
-        </View>
+        {/* Animasyonlu hoşgeldin mesajı */}
+        {showWelcomeText && (
+          <Animated.Text
+            style={[
+              styles.welcomeText,
+              {
+                opacity: welcomeTextAnim,
+                transform: [
+                  {
+                    scale: welcomeTextAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.9, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            Hoşgeldiniz! Başlamak için aşağıdaki seçeneklerden birini seçin.
+          </Animated.Text>
+        )}
 
         {/* Butonlar */}
         <View style={styles.buttons}>
           <Button title="Giriş Yap" onPress={() => router.push("/login")} />
+          <View style={{ height: 16 }} />
           <Button
             title="Kayıt Ol"
             onPress={() => router.push("/register")}
@@ -84,12 +139,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     paddingVertical: 24,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: COLORS.background,
+  },
   card: {
     width: "90%",
     maxWidth: 400,
     backgroundColor: COLORS.card,
     borderRadius: 24,
-    padding: 32,
+    paddingVertical: 32,
+    paddingHorizontal: 32,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.1,
@@ -101,12 +163,12 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 12,
   },
   logo: {
     width: 100,
     height: 100,
-    marginBottom: 24,
+    marginBottom: 12,
     borderRadius: 24,
     backgroundColor: COLORS.lightGray,
     shadowColor: COLORS.shadow,
@@ -119,34 +181,25 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "800",
     color: COLORS.primary,
-    marginBottom: 12,
+    marginBottom: 6,
     letterSpacing: -0.5,
     textAlign: "center",
   },
-  subtitle: {
+  slogan: {
     fontSize: 16,
-    color: COLORS.textLight,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginBottom: 16,
     textAlign: "center",
-    lineHeight: 24,
-    fontWeight: "400",
   },
-  description: {
-    marginVertical: 24,
-    width: "100%",
-    alignItems: "center",
-  },
-  descText: {
+  welcomeText: {
     fontSize: 16,
+    fontWeight: "700",
     color: COLORS.text,
     textAlign: "center",
-    fontWeight: "400",
-    lineHeight: 24,
-    maxWidth: "90%",
+    marginBottom: 24,
   },
   buttons: {
     width: "100%",
-    gap: 16,
-    marginTop: 16,
-    flexDirection: "column",
   },
 });

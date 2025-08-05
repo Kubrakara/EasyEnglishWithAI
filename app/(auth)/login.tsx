@@ -1,9 +1,12 @@
 import Button from "@/components/Button";
 import { COLORS } from "@/theme";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import React, { useEffect, useState } from "react";
 import {
-  Image,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,100 +15,108 @@ import {
   View,
 } from "react-native";
 
-export default function RegisterScreen() {
+export default function LoginScreen() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = () => {
-    if (password !== confirmPassword) {
-      alert("Şifreler eşleşmiyor!");
+  // Token var ise otomatik yönlendirme
+  useEffect(() => {
+    const checkToken = async () => {
+      const token = await SecureStore.getItemAsync("token");
+      if (token) {
+        router.replace("/home");
+      }
+    };
+    checkToken();
+  }, [router]);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert("Uyarı", "Lütfen e-posta ve şifre girin.");
       return;
     }
-    // TODO: Backend bağlantısı sonrası gerçek kayıt işlemi yapılacak
-    router.replace("/home");
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Giriş başarısız.");
+      }
+
+      // Token'ı güvenli şekilde sakla
+      await SecureStore.setItemAsync("token", data.token, {
+        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+      });
+
+      Alert.alert("Giriş Başarılı", "Hoş geldiniz!");
+      router.replace("/home");
+    } catch (error: any) {
+      Alert.alert("Hata", error.message || "Bir hata oluştu.");
+      console.error("Login error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.background}>
-      <View style={styles.card}>
-        {/* Başlık */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Kayıt Ol</Text>
-        </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: COLORS.background }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.background}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.card}>
+          <Text style={styles.title}>Giriş Yap</Text>
 
-        {/* Açıklama */}
-        <View style={styles.description}>
-          <Text style={styles.descText}>
-            Hızlı ve etkili bir şekilde İngilizce öğrenmeye başlayın.
-          </Text>
-        </View>
-
-        {/* Form */}
-        <TextInput
-          placeholder="E-posta"
-          placeholderTextColor={COLORS.gray}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          style={styles.input}
-        />
-
-        <TextInput
-          placeholder="Şifre"
-          placeholderTextColor={COLORS.gray}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-        />
-
-        <TextInput
-          placeholder="Şifre Tekrar"
-          placeholderTextColor={COLORS.gray}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-          style={styles.input}
-        />
-
-        {/* Buton */}
-        <View style={styles.buttons}>
-          <Button title="Kayıt Ol" onPress={handleRegister} />
-        </View>
-
-        {/* Giriş Linki */}
-        <TouchableOpacity onPress={() => router.push("/login")}>
-          <Text style={styles.registerText}>
-            Zaten hesabın var mı?{" "}
-            <Text style={styles.registerLink}>Giriş Yap</Text>
-          </Text>
-        </TouchableOpacity>
-
-        {/* Google ile Kayıt */}
-        <View style={styles.googleSignup}>
-          <Button
-            title="Google ile Kayıt Ol"
-            icon={
-              <Image
-                source={require("assets/images/google.png")} // kendi yoluna göre düzenle
-                style={{
-                  width: 20,
-                  height: 20,
-                  resizeMode: "contain",
-                  marginRight: 8,
-                }}
-              />
-            }
-            onPress={() => alert("Google ile kayıt yakında!")}
-            variant="outline"
+          <TextInput
+            placeholder="E-posta"
+            placeholderTextColor={COLORS.gray}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            style={styles.input}
+            editable={!loading}
           />
+
+          <TextInput
+            placeholder="Şifre"
+            placeholderTextColor={COLORS.gray}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            style={styles.input}
+            editable={!loading}
+          />
+
+          <View style={styles.buttons}>
+            <Button title="Giriş Yap" onPress={handleLogin} loading={loading} />
+          </View>
+
+          <TouchableOpacity
+            onPress={() => router.push("/register")}
+            disabled={loading}
+          >
+            <Text style={styles.registerText}>
+              Hesabın yok mu? <Text style={styles.registerLink}>Kayıt Ol</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -114,7 +125,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.background,
     paddingVertical: 24,
   },
   card: {
@@ -132,31 +142,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(226, 232, 240, 0.5)",
     borderWidth: 1,
   },
-  header: {
-    alignItems: "center",
-    marginBottom: 12,
-  },
   title: {
     fontSize: 32,
     fontWeight: "800",
     color: COLORS.primary,
-    marginBottom: 0,
-    letterSpacing: -0.5,
+    marginBottom: 24,
     textAlign: "center",
-  },
-  description: {
-    marginTop: 0,
-    marginBottom: 28,
-    width: "100%",
-    alignItems: "center",
-  },
-  descText: {
-    fontSize: 16,
-    color: COLORS.text,
-    textAlign: "center",
-    fontWeight: "400",
-    lineHeight: 24,
-    maxWidth: "90%",
   },
   input: {
     width: "100%",
@@ -171,9 +162,7 @@ const styles = StyleSheet.create({
   },
   buttons: {
     width: "100%",
-    gap: 16,
     marginTop: 16,
-    flexDirection: "column",
   },
   registerText: {
     marginTop: 24,
@@ -184,9 +173,5 @@ const styles = StyleSheet.create({
   registerLink: {
     color: COLORS.primary,
     fontWeight: "600",
-  },
-  googleSignup: {
-    marginTop: 24,
-    width: "100%",
   },
 });

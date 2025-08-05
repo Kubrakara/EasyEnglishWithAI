@@ -1,4 +1,6 @@
 import { COLORS } from "@/theme";
+import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import React from "react";
 import {
   Alert,
@@ -12,13 +14,18 @@ import {
 } from "react-native";
 
 export default function Profile() {
+  const router = useRouter();
+
   const handleLogout = () => {
     Alert.alert("Çıkış", "Çıkış yapmak istediğinize emin misiniz?", [
-      { text: "İptal" },
+      { text: "İptal", style: "cancel" },
       {
         text: "Evet",
-        onPress: () => {
-          // TODO: Logout işlemi yapılacak
+        style: "destructive",
+        onPress: async () => {
+          await SecureStore.deleteItemAsync("token"); // token sil
+          Alert.alert("Başarılı", "Çıkış yapıldı");
+          router.replace("/login"); // login ekranına yönlendir
         },
       },
     ]);

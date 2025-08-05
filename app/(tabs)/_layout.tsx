@@ -1,21 +1,24 @@
-import { Entypo, FontAwesome5, MaterialIcons } from "@expo/vector-icons";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import {
+  Entypo,
+  FontAwesome5,
+  Ionicons,
+  MaterialIcons,
+} from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import React from "react";
-
-const Tab = createBottomTabNavigator();
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#04befcff", // Indigo gibi bir renk
-        tabBarInactiveTintColor: "#96999bff", // Gri gibi bir renk
+        tabBarActiveTintColor: "#04befcff",
+        tabBarInactiveTintColor: "#96999bff",
         tabBarStyle: {
           backgroundColor: "#fff",
           borderTopWidth: 0,
           elevation: 5,
+          height: 60,
+          paddingBottom: 6,
         },
       }}
     >
@@ -49,9 +52,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profil",
+          title: "Profile",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="user" size={size} color={color} />
+            <Ionicons name="person" size={size} color={color} />
           ),
         }}
       />
