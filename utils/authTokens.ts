@@ -23,7 +23,7 @@ export async function refreshAccessToken() {
   const { refreshToken } = await getTokens();
   if (!refreshToken) throw new Error("Refresh token bulunamadı");
 
-  const response = await fetch("http://localhost:3000/api/auth/refresh", {
+  const response = await fetch("http://192.168.0.103:3000/api/auth/refresh", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refreshToken }),

@@ -1,7 +1,8 @@
 import { COLORS } from "@/theme";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import React from "react";
+import { jwtDecode } from "jwt-decode";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -13,8 +14,28 @@ import {
   View,
 } from "react-native";
 
+// JWT payload tipini tanımla
+type MyJwtPayload = { email?: string; [key: string]: any };
+
 export default function Profile() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = await SecureStore.getItemAsync("token");
+      if (token) {
+        try {
+          const decoded = jwtDecode<MyJwtPayload>(token);
+          // decoded objesinde email varsa onu al
+          setEmail(decoded.email || "");
+        } catch (e) {
+          setEmail("");
+        }
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleLogout = () => {
     Alert.alert("Çıkış", "Çıkış yapmak istediğinize emin misiniz?", [
@@ -43,7 +64,7 @@ export default function Profile() {
 
         <View style={styles.infoBox}>
           <Text style={styles.label}>E-posta:</Text>
-          <Text style={styles.value}>kubra@example.com</Text>
+          <Text style={styles.value}>{email ? email : "-"}</Text>
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

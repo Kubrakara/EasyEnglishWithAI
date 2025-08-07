@@ -1,7 +1,7 @@
 import Button from "@/components/Button";
 import { COLORS } from "@/theme";
+import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import React, { useState } from "react";
 import {
   Alert,
@@ -14,6 +14,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+// Kayıt sonrası kullanıcıyı veritabanına ekleyen fonksiyon
+type UserPayload = { id: string; email: string };
+const addUserToDatabase = async (user: UserPayload) => {
+  if (!user) return;
+  const { id, email } = user;
+  const { error } = await supabase
+    .from("users")
+    .insert([{ id, email }]);
+  if (error) {
+    console.log("Kullanıcı eklenirken hata:", error.message);
+  }
+};
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -47,7 +60,7 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/register", {
+      const response = await fetch("http://192.168.0.103:3000/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -59,18 +72,21 @@ export default function RegisterScreen() {
         throw new Error(data.error || "Kayıt başarısız");
       }
 
-      await SecureStore.setItemAsync("token", data.token, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      });
+      // Kayıt başarılıysa kullanıcıyı veritabanına ekle
+      if (data && data.user) {
+        await addUserToDatabase({ id: data.user.id, email: data.user.email });
+      }
 
-      Alert.alert("Başarılı", "Kayıt başarılı! Hoş geldiniz.");
-
-      router.replace("/home");
+      router.replace("/login");
+    
     } catch (error: any) {
-      Alert.alert(
-        "Hata",
-        error.message || "Bir hata oluştu. Lütfen tekrar deneyin."
-      );
+      let message = error.message;
+      if (message.includes("zaten kayıt olunmuş")) {
+        message = "Bu e-posta ile zaten kayıt olunmuş.";
+      } else if (message.includes("E-posta ve şifre alanları zorunludur")) {
+        message = "E-posta ve şifre alanları zorunludur.";
+      }
+      Alert.alert("Hata", message || "Bir hata oluştu. Lütfen tekrar deneyin.");
       console.error(error);
     } finally {
       setLoading(false);

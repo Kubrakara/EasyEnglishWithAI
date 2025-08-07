@@ -5,7 +5,7 @@ import { signToken } from "../utils/jwt";
 export const register = async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password)
-    return res.status(400).json({ error: "Email and password are required." });
+    return res.status(400).json({ error: "E-posta ve şifre alanları zorunludur." });
 
   try {
     const { data, error } = await supabase.auth.admin.createUser({
@@ -14,7 +14,12 @@ export const register = async (req: Request, res: Response) => {
       email_confirm: true,
     });
 
-    if (error) throw error;
+    if (error) {
+      if (error.message && error.message.includes("already registered")) {
+        return res.status(409).json({ error: "Bu e-posta ile zaten kayıt olunmuş." });
+      }
+      throw error;
+    }
 
     const token = signToken({ id: data.user?.id, email });
 
@@ -27,7 +32,7 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password)
-    return res.status(400).json({ error: "Email and password are required." });
+    return res.status(400).json({ error: "E-posta ve şifre alanları zorunludur." });
 
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -36,7 +41,7 @@ export const login = async (req: Request, res: Response) => {
     });
 
     if (error || !data.user)
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "E-posta veya şifre hatalı." });
 
     const token = signToken({ id: data.user.id, email });
 

@@ -41,7 +41,7 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
+      const response = await fetch("http://192.168.0.103:3000/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -57,11 +57,15 @@ export default function LoginScreen() {
       await SecureStore.setItemAsync("token", data.token, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       });
-
-      Alert.alert("Giriş Başarılı", "Hoş geldiniz!");
       router.replace("/home");
     } catch (error: any) {
-      Alert.alert("Hata", error.message || "Bir hata oluştu.");
+      let message = error.message;
+      if (message.includes("E-posta veya şifre hatalı")) {
+        message = "E-posta veya şifre yanlış. Lütfen tekrar deneyin.";
+      } else if (message.includes("E-posta ve şifre alanları zorunludur")) {
+        message = "E-posta ve şifre alanları zorunludur.";
+      }
+      Alert.alert("Hata", message || "Bir hata oluştu.");
       console.error("Login error:", error);
     } finally {
       setLoading(false);

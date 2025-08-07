@@ -4,8 +4,12 @@ export default function RootLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: false, 
+        headerShown: false,
       }}
-    />
+    >
+      <Stack.Screen name="(auth)"/>
+      <Stack.Screen name="(tabs)" />
+      {/* Eğer başka ana klasörlerin varsa onları da ekle */}
+    </Stack>
   );
 }
