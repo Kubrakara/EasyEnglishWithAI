@@ -1,16 +1,17 @@
 import Button from "@/components/Button";
 import { COLORS } from "@/theme";
+import { supabase } from "@/utils/supabaseClient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Animated,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 export default function WelcomeScreen() {
@@ -20,20 +21,49 @@ export default function WelcomeScreen() {
 
   const [showWelcomeText, setShowWelcomeText] = useState(false);
   const welcomeTextAnim = useRef(new Animated.Value(0)).current;
-  const [loading, setLoading] = useState(true); // 🔄 Token kontrolü bitene kadar beklet
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkToken = async () => {
-      const token = await SecureStore.getItemAsync("token");
-      if (token) {
-        router.replace("/home");
-      } else {
-        setLoading(false); // token yoksa animasyon başlasın
+    const checkUserStatus = async () => {
+      try {
+        // Önce Supabase session kontrolü yap
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.log("Session kontrolü hatası:", sessionError.message);
+        }
+
+        if (session) {
+          // Kullanıcı oturum açmış, ana sayfaya yönlendir
+          console.log("Kullanıcı oturum açmış, ana sayfaya yönlendiriliyor");
+          router.replace("/home");
+          return;
+        }
+
+        // Session yoksa, ilk açılış kontrolü yap
+        const isFirstLaunch = await AsyncStorage.getItem("isFirstLaunch");
+        console.log("İlk açılış kontrolü:", isFirstLaunch);
+        
+        if (isFirstLaunch === null) {
+          // İlk açılış - hoşgeldin ekranını göster
+          console.log("İlk açılış tespit edildi, hoşgeldin ekranı gösteriliyor");
+          await AsyncStorage.setItem("isFirstLaunch", "false");
+        }
+
+        // İlk açılış değil, hoşgeldin ekranını göster
+        console.log("İlk açılış değil, hoşgeldin ekranı gösteriliyor");
+        setLoading(false);
+        startAnimations();
+        
+      } catch (error) {
+        console.error("Kullanıcı durumu kontrolü hatası:", error);
+        // Hata durumunda da hoşgeldin ekranını göster
+        setLoading(false);
         startAnimations();
       }
     };
 
-    checkToken();
+    checkUserStatus();
   }, []);
 
   const startAnimations = () => {

@@ -7,9 +7,14 @@ export default function RootLayout() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="(auth)"/>
+      {/* Ana hoşgeldin sayfası */}
+      <Stack.Screen name="index" />
+      
+      {/* Auth grupları */}
+      <Stack.Screen name="(auth)" />
+      
+      {/* Ana uygulama tabları */}
       <Stack.Screen name="(tabs)" />
-      {/* Eğer başka ana klasörlerin varsa onları da ekle */}
     </Stack>
   );
 }
