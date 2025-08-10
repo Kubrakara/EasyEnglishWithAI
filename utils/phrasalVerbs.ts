@@ -3,6 +3,7 @@ export type PhrasalVerbType = {
   verb: string;
   meaning: string;
   example: string;
+  isFavorite?: boolean;
 };
 
 export const PHRASAL_VERBS_DATA: PhrasalVerbType[] = [

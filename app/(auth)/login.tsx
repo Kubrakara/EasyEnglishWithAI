@@ -1,8 +1,9 @@
 import Button from "@/components/Button";
 import { COLORS } from "@/theme";
+import { saveTokens } from "@/utils/authTokens";
+import { API_BASE_URL } from "@/utils/apiConfig";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -21,27 +22,16 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Token var ise otomatik yönlendirme
-  useEffect(() => {
-    const checkToken = async () => {
-      const token = await SecureStore.getItemAsync("token");
-      if (token) {
-        router.replace("/home");
-      }
-    };
-    checkToken();
-  }, [router]);
-
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert("Uyarı", "Lütfen e-posta ve şifre girin.");
+      Alert.alert("Giriş Başarısız", "Lütfen e-posta ve şifre alanlarını doldurun.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch("http://192.168.0.103:3000/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -50,23 +40,29 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Giriş başarısız.");
+        // Sunucudan gelen hata mesajını kullan, yoksa genel bir mesaj göster
+        throw new Error(data.message || "E-posta veya şifre hatalı.");
       }
 
-      // Token'ı güvenli şekilde sakla
-      await SecureStore.setItemAsync("token", data.token, {
-        keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-      });
-      router.replace("/home");
-    } catch (error: any) {
-      let message = error.message;
-      if (message.includes("E-posta veya şifre hatalı")) {
-        message = "E-posta veya şifre yanlış. Lütfen tekrar deneyin.";
-      } else if (message.includes("E-posta ve şifre alanları zorunludur")) {
-        message = "E-posta ve şifre alanları zorunludur.";
+      // accessToken ve refreshToken'ı güvenli şekilde sakla
+      if (data.accessToken && data.refreshToken) {
+        await saveTokens(data.accessToken, data.refreshToken);
+      } else {
+        throw new Error("Token alınamadı. Lütfen tekrar deneyin.");
       }
-      Alert.alert("Hata", message || "Bir hata oluştu.");
-      console.error("Login error:", error);
+      
+      // Başarılı giriş sonrası ana ekrana yönlendir
+      router.replace("/(tabs)/home");
+
+    } catch (error: any) {
+      let errorMessage = "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
+      if (error.message.includes("Network request failed")) {
+        errorMessage = "İnternet bağlantınızı kontrol edin.";
+      } else {
+        errorMessage = error.message;
+      }
+      Alert.alert("Hata", errorMessage);
+      console.error("Login Error:", error);
     } finally {
       setLoading(false);
     }
@@ -75,10 +71,10 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: COLORS.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={styles.background}
+        contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.card}>
@@ -106,13 +102,14 @@ export default function LoginScreen() {
             editable={!loading}
           />
 
-          <View style={styles.buttons}>
+          <View style={styles.buttonContainer}>
             <Button title="Giriş Yap" onPress={handleLogin} loading={loading} />
           </View>
 
           <TouchableOpacity
             onPress={() => router.push("/register")}
             disabled={loading}
+            style={styles.registerButton}
           >
             <Text style={styles.registerText}>
               Hesabın yok mu? <Text style={styles.registerLink}>Kayıt Ol</Text>
@@ -125,57 +122,58 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  background: {
+  container: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 24,
+    backgroundColor: COLORS.background,
+    padding: 20,
   },
   card: {
-    width: "90%",
+    width: "100%",
     maxWidth: 400,
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 32,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 12 },
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 12,
-    alignItems: "center",
-    borderColor: "rgba(226, 232, 240, 0.5)",
-    borderWidth: 1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "bold",
     color: COLORS.primary,
     marginBottom: 24,
     textAlign: "center",
   },
   input: {
     width: "100%",
+    backgroundColor: COLORS.background,
     height: 50,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
     fontSize: 16,
     color: COLORS.text,
   },
-  buttons: {
+  buttonContainer: {
     width: "100%",
     marginTop: 16,
   },
-  registerText: {
+  registerButton: {
     marginTop: 24,
+  },
+  registerText: {
     textAlign: "center",
     color: COLORS.textLight,
     fontSize: 14,
   },
   registerLink: {
     color: COLORS.primary,
-    fontWeight: "600",
+    fontWeight: "bold",
   },
 });

@@ -1,4 +1,11 @@
-declare module '@env' {
-    export const SUPABASE_URL: string;
-    export const SUPABASE_ANON_KEY: string;
+declare module "expo-constants" {
+  export interface Constants {
+    expoConfig?: {
+      extra?: {
+        GEMINI_API_KEY?: string;
+        SUPABASE_URL?: string;
+        SUPABASE_ANON_KEY?: string;
+      };
+    };
   }
+}

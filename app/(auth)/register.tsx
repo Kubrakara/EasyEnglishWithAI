@@ -1,6 +1,7 @@
 import Button from "@/components/Button";
 import { COLORS } from "@/theme";
-import { supabase } from "@/utils/supabaseClient";
+import { API_BASE_URL } from "@/utils/apiConfig";
+import { saveTokens } from "@/utils/authTokens";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -15,19 +16,6 @@ import {
   View,
 } from "react-native";
 
-// Kayıt sonrası kullanıcıyı veritabanına ekleyen fonksiyon
-type UserPayload = { id: string; email: string };
-const addUserToDatabase = async (user: UserPayload) => {
-  if (!user) return;
-  const { id, email } = user;
-  const { error } = await supabase
-    .from("users")
-    .insert([{ id, email }]);
-  if (error) {
-    console.log("Kullanıcı eklenirken hata:", error.message);
-  }
-};
-
 export default function RegisterScreen() {
   const router = useRouter();
 
@@ -36,58 +24,68 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const validateEmail = (email: string) => {
-    const re = /\S+@\S+\.\S+/;
-    return re.test(email);
+  const validateInputs = () => {
+    if (password !== confirmPassword) {
+      Alert.alert("Kayıt Başarısız", "Şifreler eşleşmiyor. Lütfen kontrol edin.");
+      return false;
+    }
+    const emailRegex = /\S+@\S+\.\S+/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Kayıt Başarısız", "Lütfen geçerli bir e-posta adresi girin.");
+      return false;
+    }
+    if (password.length < 6) {
+      Alert.alert("Kayıt Başarısız", "Şifreniz en az 6 karakter olmalıdır.");
+      return false;
+    }
+    return true;
   };
 
   const handleRegister = async () => {
-    if (password !== confirmPassword) {
-      Alert.alert("Hata", "Şifreler eşleşmiyor!");
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      Alert.alert("Hata", "Lütfen geçerli bir e-posta adresi girin.");
-      return;
-    }
-
-    if (!password) {
-      Alert.alert("Hata", "Lütfen şifre girin.");
+    if (!validateInputs()) {
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch("http://192.168.0.103:3000/auth/register", {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Kayıt başarısız");
+        throw new Error(data.message || "Kayıt işlemi sırasında bir hata oluştu.");
       }
 
-      // Kayıt başarılıysa kullanıcıyı veritabanına ekle
-      if (data && data.user) {
-        await addUserToDatabase({ id: data.user.id, email: data.user.email });
+      // Otomatik giriş için token'ları kaydet
+      if (data.accessToken && data.refreshToken) {
+        await saveTokens(data.accessToken, data.refreshToken);
+      } else {
+        // Token yoksa, kullanıcıyı bilgilendir ve login sayfasına yönlendir
+        Alert.alert(
+          "Kayıt Başarılı",
+          "Kaydınız tamamlandı. Lütfen giriş yapın."
+        );
+        router.replace("/(auth)/login");
+        return;
       }
 
-      router.replace("/login");
-    
+      // Başarılı kayıt ve token kaydı sonrası ana ekrana yönlendir
+      router.replace("/(tabs)/home");
+
     } catch (error: any) {
-      let message = error.message;
-      if (message.includes("zaten kayıt olunmuş")) {
-        message = "Bu e-posta ile zaten kayıt olunmuş.";
-      } else if (message.includes("E-posta ve şifre alanları zorunludur")) {
-        message = "E-posta ve şifre alanları zorunludur.";
+      let errorMessage = "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
+      if (error.message.includes("Network request failed")) {
+        errorMessage = "İnternet bağlantınızı kontrol edin.";
+      } else {
+        errorMessage = error.message;
       }
-      Alert.alert("Hata", message || "Bir hata oluştu. Lütfen tekrar deneyin.");
-      console.error(error);
+      Alert.alert("Hata", errorMessage);
+      console.error("Register Error:", error);
     } finally {
       setLoading(false);
     }
@@ -96,26 +94,18 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: COLORS.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={styles.background}
+        contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.card}>
-          {/* Başlık */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Kayıt Ol</Text>
-          </View>
+          <Text style={styles.title}>Hesap Oluştur</Text>
+          <Text style={styles.subtitle}>
+            Yeni bir dünya keşfetmek için ilk adımı at.
+          </Text>
 
-          {/* Açıklama */}
-          <View style={styles.description}>
-            <Text style={styles.descText}>
-              Hemen kaydol ve İngilizce öğrenmeye bugün başla.
-            </Text>
-          </View>
-
-          {/* Form */}
           <TextInput
             placeholder="E-posta"
             placeholderTextColor={COLORS.gray}
@@ -129,7 +119,7 @@ export default function RegisterScreen() {
           />
 
           <TextInput
-            placeholder="Şifre"
+            placeholder="Şifre (en az 6 karakter)"
             placeholderTextColor={COLORS.gray}
             value={password}
             onChangeText={setPassword}
@@ -148,24 +138,17 @@ export default function RegisterScreen() {
             editable={!loading}
           />
 
-          {/* Buton */}
-          <View style={styles.buttons}>
-            <Button
-              title="Kayıt Ol"
-              onPress={handleRegister}
-              loading={loading}
-              disabled={loading}
-            />
+          <View style={styles.buttonContainer}>
+            <Button title="Kayıt Ol" onPress={handleRegister} loading={loading} />
           </View>
 
-          {/* Giriş Linki */}
           <TouchableOpacity
             onPress={() => router.push("/login")}
             disabled={loading}
+            style={styles.loginButton}
           >
             <Text style={styles.loginText}>
-              Zaten hesabın var mı?{" "}
-              <Text style={styles.loginLink}>Giriş Yap</Text>
+              Zaten bir hesabın var mı? <Text style={styles.loginLink}>Giriş Yap</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -175,78 +158,64 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  background: {
+  container: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: COLORS.background,
-    paddingVertical: 24,
+    padding: 20,
   },
   card: {
-    width: "90%",
+    width: "100%",
     maxWidth: 400,
     backgroundColor: COLORS.card,
     borderRadius: 24,
     padding: 32,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 12 },
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 12,
-    alignItems: "center",
-    borderColor: "rgba(226, 232, 240, 0.5)",
-    borderWidth: 1,
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 12,
+    shadowRadius: 10,
+    elevation: 5,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "bold",
     color: COLORS.primary,
-    letterSpacing: -0.5,
+    marginBottom: 8,
     textAlign: "center",
   },
-  description: {
-    marginTop: 0,
-    marginBottom: 28,
-    width: "100%",
-    alignItems: "center",
-  },
-  descText: {
+  subtitle: {
     fontSize: 16,
-    color: COLORS.text,
+    color: COLORS.textLight,
+    marginBottom: 24,
     textAlign: "center",
-    fontWeight: "400",
-    lineHeight: 24,
-    maxWidth: "90%",
   },
   input: {
     width: "100%",
+    backgroundColor: COLORS.background,
     height: 50,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
     fontSize: 16,
     color: COLORS.text,
   },
-  buttons: {
+  buttonContainer: {
     width: "100%",
-    gap: 16,
     marginTop: 16,
-    flexDirection: "column",
+  },
+  loginButton: {
+    marginTop: 24,
   },
   loginText: {
-    marginTop: 24,
     textAlign: "center",
     color: COLORS.textLight,
     fontSize: 14,
   },
   loginLink: {
     color: COLORS.primary,
-    fontWeight: "600",
+    fontWeight: "bold",
   },
 });

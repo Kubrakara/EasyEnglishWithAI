@@ -1,56 +1,102 @@
+import Button from "@/components/Button";
+import Skeleton from "@/components/ui/Skeleton";
 import { COLORS } from "@/theme";
+import { API_BASE_URL } from "@/utils/apiConfig";
+import { clearTokens } from "@/utils/authTokens";
+import { fetchWithToken } from "@/utils/fetchClient";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import { jwtDecode } from "jwt-decode";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
-  Platform,
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
-// JWT payload tipini tanımla
-type MyJwtPayload = { email?: string; [key: string]: any };
+interface UserProfile {
+  name: string;
+  email: string;
+}
 
-export default function Profile() {
+const ProfileSkeleton = () => (
+  <View style={styles.container}>
+    <Text style={styles.title}>Profil</Text>
+    <View style={styles.infoBox}>
+      <Skeleton width={100} height={16} style={{ marginBottom: 8 }} />
+      <Skeleton width={200} height={20} />
+    </View>
+    <View style={styles.infoBox}>
+      <Skeleton width={100} height={16} style={{ marginBottom: 8 }} />
+      <Skeleton width={250} height={20} />
+    </View>
+  </View>
+);
+
+export default function ProfileScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const token = await SecureStore.getItemAsync("token");
-      if (token) {
-        try {
-          const decoded = jwtDecode<MyJwtPayload>(token);
-          // decoded objesinde email varsa onu al
-          setEmail(decoded.email || "");
-        } catch (e) {
-          setEmail("");
-        }
+  const fetchUser = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetchWithToken(`${API_BASE_URL}/api/users/me`);
+      if (!response.ok) {
+        throw new Error("Kullanıcı bilgileri alınamadı.");
       }
-    };
-    fetchUser();
+      const data = await response.json();
+      setUser(data);
+    } catch (e: any) {
+      setError(e.message || "Bir hata oluştu.");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
+
   const handleLogout = () => {
-    Alert.alert("Çıkış", "Çıkış yapmak istediğinize emin misiniz?", [
+    Alert.alert("Çıkış Yap", "Hesabınızdan çıkmak istediğinize emin misiniz?", [
       { text: "İptal", style: "cancel" },
       {
-        text: "Evet",
+        text: "Çıkış Yap",
         style: "destructive",
         onPress: async () => {
-          await SecureStore.deleteItemAsync("token"); // token sil
-          Alert.alert("Başarılı", "Çıkış yapıldı");
-          router.replace("/login"); // login ekranına yönlendir
+          try {
+            await clearTokens();
+            router.replace("/(auth)/login");
+          } catch (e) {
+            Alert.alert("Hata", "Çıkış yapılırken bir sorun oluştu.");
+          }
         },
       },
     ]);
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ProfileSkeleton />
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error || "Veriler yüklenemedi."}</Text>
+          <Button title="Tekrar Dene" onPress={fetchUser} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -58,13 +104,13 @@ export default function Profile() {
         <Text style={styles.title}>Profil</Text>
 
         <View style={styles.infoBox}>
-          <Text style={styles.label}>Kullanıcı Adı:</Text>
-          <Text style={styles.value}>Kubra Kara</Text>
+          <Text style={styles.label}>Kullanıcı Adı</Text>
+          <Text style={styles.value}>{user.name}</Text>
         </View>
 
         <View style={styles.infoBox}>
-          <Text style={styles.label}>E-posta:</Text>
-          <Text style={styles.value}>{email ? email : "-"}</Text>
+          <Text style={styles.label}>E-posta</Text>
+          <Text style={styles.value}>{user.email}</Text>
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -76,45 +122,14 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight ?? 52 : 52,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 32,
-    color: COLORS.text,
-  },
-  infoBox: {
-    marginBottom: 20,
-  },
-  label: {
-    color: COLORS.textLight,
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  value: {
-    fontSize: 18,
-    color: COLORS.text,
-    fontWeight: "600",
-  },
-  logoutButton: {
-    marginTop: 40,
-    backgroundColor: COLORS.error,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  logoutText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  safeArea: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, padding: 24 },
+  errorContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
+  errorText: { fontSize: 18, color: COLORS.text, textAlign: "center", marginBottom: 20 },
+  title: { fontSize: 32, fontWeight: "bold", color: COLORS.primary, marginBottom: 32 },
+  infoBox: { marginBottom: 24, backgroundColor: COLORS.white, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
+  label: { color: COLORS.textLight, fontSize: 14, marginBottom: 8 },
+  value: { fontSize: 18, color: COLORS.text, fontWeight: "600" },
+  logoutButton: { marginTop: 40, backgroundColor: COLORS.error, paddingVertical: 16, borderRadius: 12, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 },
+  logoutText: { color: COLORS.white, fontSize: 16, fontWeight: "bold" },
 });
