@@ -1,12 +1,12 @@
 import { COLORS } from "@/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-
 import * as Speech from "expo-speech";
 import React, { useEffect, useRef, useState } from "react";
 import {
   AccessibilityRole,
   Animated,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,7 +20,7 @@ export default function HomeScreen() {
   const phrasalVerb = {
     id: "1",
     verb: "Break down",
-    meaning: "To stop working (for machines) or to become very upset",
+    meaning: "Bir makinenin çalışmayı durdurması veya birinin çok üzülmesi",
     example: "My car broke down on the way to work.",
   };
 
@@ -28,12 +28,9 @@ export default function HomeScreen() {
   const [learnedCount, setLearnedCount] = useState(24);
   const totalCount = 40;
 
-  // Kalp ikonuna animasyon için değer
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Favori toggle animasyonlu
   const toggleFavorite = () => {
-    // Animasyon
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 1.3,
@@ -47,52 +44,46 @@ export default function HomeScreen() {
       }),
     ]).start();
 
-    setIsFavorite((prev) => {
-      const newVal = !prev;
-      // Modern toast / bildirim burada olmalı, demo için alert
-      alert(
-        newVal
-          ? `${phrasalVerb.verb} favorilere eklendi!`
-          : `${phrasalVerb.verb} favorilerden çıkarıldı!`
-      );
-      return newVal;
-    });
+    setIsFavorite((prev) => !prev);
   };
 
   const startTest = () => {
-    router.push("../testscreen");
+    router.push("/testscreen");
   };
 
   const goToList = () => {
     router.push("/phrasal");
   };
 
-  // Sesli okuma fonksiyonu (expo-speech)
   const playSound = () => {
     Speech.speak(phrasalVerb.verb, { language: "en" });
   };
 
-  // Animasyonlu progress bar genişliği
-  const progressAnim = useRef(
-    new Animated.Value((learnedCount / totalCount) * 100)
-  ).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(progressAnim, {
       toValue: (learnedCount / totalCount) * 100,
-      duration: 800,
-      useNativeDriver: false,
+      duration: 1000,
+      useNativeDriver: false, // width animation not supported by native driver
     }).start();
   }, [learnedCount]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Günün Phrasal Verbi</Text>
-        <Text style={styles.subtitle}>Yeni kelime öğrenmeye hazır mısın?</Text>
-
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Günün Kelimesi Kartı */}
         <View style={styles.card}>
-          <View style={styles.headerRow}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Günün Kelimesi</Text>
+            <Ionicons name="sparkles" size={22} color={COLORS.primary} />
+          </View>
+
+          <View style={styles.verbRow}>
             <Text style={styles.verb}>{phrasalVerb.verb}</Text>
             <TouchableOpacity
               onPress={toggleFavorite}
@@ -105,7 +96,7 @@ export default function HomeScreen() {
               <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                 <Ionicons
                   name={isFavorite ? "heart" : "heart-outline"}
-                  size={28}
+                  size={32}
                   color={isFavorite ? COLORS.error : COLORS.primary}
                 />
               </Animated.View>
@@ -113,25 +104,26 @@ export default function HomeScreen() {
           </View>
 
           <Text style={styles.meaning}>{phrasalVerb.meaning}</Text>
-          <Text style={styles.example}>Örnek: {phrasalVerb.example}</Text>
+          <Text style={styles.example}>"{phrasalVerb.example}"</Text>
 
           <TouchableOpacity
             style={styles.listenButton}
             activeOpacity={0.7}
             onPress={playSound}
-            accessibilityRole={"button"}
-            accessibilityLabel={`Dinle: ${phrasalVerb.verb}`}
           >
-            <Ionicons name="volume-high" size={22} color={COLORS.primary} />
+            <Ionicons name="volume-high-outline" size={24} color={COLORS.white} />
             <Text style={styles.listenText}>Dinle</Text>
           </TouchableOpacity>
         </View>
 
-        {/* İlerleme Kartı */}
-        <View style={styles.progressCard}>
-          <Text style={styles.progressText}>
-            Öğrenilen Kelime: {learnedCount} / {totalCount}
-          </Text>
+        {/* İlerleme Bölümü */}
+        <View style={styles.progressSection}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressTitle}>Genel İlerleme</Text>
+            <Text style={styles.progressCount}>
+              {learnedCount} / {totalCount}
+            </Text>
+          </View>
           <View style={styles.progressBarBackground}>
             <Animated.View
               style={[
@@ -148,35 +140,25 @@ export default function HomeScreen() {
         </View>
 
         {/* Test Başlat Butonu */}
-        <TouchableOpacity
-          style={styles.testButton}
-          activeOpacity={0.8}
-          onPress={startTest}
-          accessibilityRole={"button"}
-          accessibilityLabel="Bugünün testine başla"
-        >
-          <Text style={styles.testButtonText}>Bugünün Testine Başla</Text>
+        <TouchableOpacity style={styles.testButton} onPress={startTest}>
+          <Ionicons name="game-controller" size={24} color={COLORS.white} />
+          <Text style={styles.testButtonText}>Hadi Teste Başla!</Text>
         </TouchableOpacity>
 
         {/* Tüm Kelimeler Listesine Git */}
-        <TouchableOpacity
-          style={styles.listButton}
-          activeOpacity={0.7}
-          onPress={goToList}
-          accessibilityRole={"button"}
-          accessibilityLabel="Tüm phrasal verbler listesine git"
-        >
-          <Text style={styles.listButtonText}>Tüm Phrasal Verbler</Text>
+        <TouchableOpacity style={styles.listButton} onPress={goToList}>
+          <Text style={styles.listButtonText}>Tüm Phrasal Verbleri Gör</Text>
+          <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
         </TouchableOpacity>
 
         {/* Günlük Motivasyon / İpucu */}
         <View style={styles.tipCard}>
+          <Text style={styles.tipEmoji}>💡</Text>
           <Text style={styles.tipText}>
-            🎯 İpucu: Yeni öğrendiğin kelimeleri küçük cümlelerde kullanmaya
-            çalış!
+            Her gün bir kelime öğrenmek, bir yılda 365 yeni kelime demektir!
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -184,94 +166,109 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: "#F4F7FF", // Daha yumuşak bir arka plan
+  },
+  scrollView: {
+    flex: 1,
   },
   container: {
-    flex: 1,
-    paddingTop: 30,
+    paddingVertical: 20,
     paddingHorizontal: 24,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: COLORS.textLight,
-    marginBottom: 20,
-  },
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
     padding: 24,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
-    marginBottom: 28,
+    marginBottom: 32,
+    shadowColor: "#A5B4CB",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  headerRow: {
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.textLight,
+  },
+  verbRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 16,
   },
   verb: {
-    fontSize: 30,
-    fontWeight: "800",
+    fontSize: 36,
+    fontWeight: "900",
     color: COLORS.primary,
+    flex: 1, // Yazının butona taşmasını engeller
   },
   meaning: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "500",
     color: COLORS.text,
     marginBottom: 12,
-    lineHeight: 24,
+    lineHeight: 26,
   },
   example: {
-    fontSize: 15,
+    fontSize: 16,
     fontStyle: "italic",
     color: COLORS.textLight,
-    marginBottom: 20,
-    lineHeight: 22,
+    marginBottom: 24,
+    lineHeight: 24,
+    backgroundColor: "#F8FAFC",
+    padding: 12,
+    borderRadius: 12,
   },
   listenButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
-  },
-  listenText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.primary,
-    marginLeft: 8,
-  },
-  progressCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 28,
-    shadowColor: COLORS.shadow,
+    justifyContent: "center",
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 16,
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 6,
   },
-  progressText: {
-    flex: 1,
+  listenText: {
+    fontSize: 18,
     fontWeight: "700",
-    fontSize: 16,
+    color: COLORS.white,
+    marginLeft: 10,
+  },
+  progressSection: {
+    marginBottom: 32,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  progressTitle: {
+    fontSize: 18,
+    fontWeight: "700",
     color: COLORS.text,
   },
+  progressCount: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
   progressBarBackground: {
-    flex: 2,
-    height: 14,
-    backgroundColor: COLORS.lightGray,
+    height: 12,
+    backgroundColor: "#E2E8F0",
     borderRadius: 10,
     overflow: "hidden",
   },
@@ -281,12 +278,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   testButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 18,
+    backgroundColor: "#10B981", // Canlı bir yeşil
+    paddingVertical: 20,
     borderRadius: 20,
     alignItems: "center",
-    marginBottom: 20,
-    shadowColor: COLORS.primary,
+    justifyContent: "center",
+    flexDirection: "row",
+    marginBottom: 16,
+    shadowColor: "#10B981",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 14,
@@ -294,34 +293,41 @@ const styles = StyleSheet.create({
   },
   testButtonText: {
     color: COLORS.white,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
+    marginLeft: 12,
   },
   listButton: {
     paddingVertical: 14,
     alignItems: "center",
-    marginBottom: 28,
+    justifyContent: "center",
+    flexDirection: "row",
+    marginBottom: 32,
   },
   listButtonText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: COLORS.primary,
-    textDecorationLine: "underline",
+    marginRight: 8,
   },
   tipCard: {
-    backgroundColor: COLORS.card,
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 4,
+    backgroundColor: "#E0E7FF",
+    padding: 20,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  tipEmoji: {
+    fontSize: 24,
+    marginRight: 16,
   },
   tipText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textLight,
-    textAlign: "center",
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#4338CA",
+    lineHeight: 22,
   },
 });

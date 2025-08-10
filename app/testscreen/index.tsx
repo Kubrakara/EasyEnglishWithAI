@@ -16,6 +16,17 @@ export default function TestScreen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showScore, setShowScore] = useState(false);
 
+  if (!questions || questions.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text>Sorular yüklenemedi veya hiç soru yok.</Text>
+        <TouchableOpacity onPress={() => router.push("/")}>
+          <Text>Ana Sayfaya Dön</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const question = questions[currentIndex];
 
   const onSelectOption = (index: number) => {
@@ -50,7 +61,7 @@ export default function TestScreen() {
           score={score}
           total={questions.length}
           onRestart={onRestart}
-          onExit={() => router.push("/")}
+          onExit={() => router.push("/home")}
         />
       ) : (
         <>
