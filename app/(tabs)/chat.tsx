@@ -1,11 +1,9 @@
-import { COLORS } from "@/theme";
-import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -15,6 +13,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
+
+const COLORS = {
+  white: "#fff",
+  gray: "#999",
+  primary: "#4A90E2",
+  lightGray: "#e5e5ea",
+  border: "#ddd",
+  error: "#ff4d4f",
+  text: "#222",
+};
 
 type Message = {
   id: string;
@@ -24,7 +33,6 @@ type Message = {
 };
 
 export default function ChatScreen() {
-  const [inputText, setInputText] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "ai-intro",
@@ -32,11 +40,22 @@ export default function ChatScreen() {
       isUser: false,
     },
   ]);
+  const [inputText, setInputText] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
+  // Klavye açıldığında mesaj sonuna scroll
+  useEffect(() => {
+    const keyboardShowListener = Keyboard.addListener("keyboardDidShow", () => {
+      scrollToBottom();
+    });
+    return () => keyboardShowListener.remove();
+  }, []);
+
   const scrollToBottom = () => {
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    setTimeout(() => {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 100);
   };
 
   const handleSend = useCallback(async (messageText: string) => {
@@ -50,16 +69,19 @@ export default function ChatScreen() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    setInputText("");
     scrollToBottom();
-    setInputText(""); // mesaj gönderildikten sonra input temizlensin
     setIsAiLoading(true);
 
     try {
-      const prompt = `You are my friendly English conversation partner. First, correct my sentence without giving multiple alternatives—just rewrite it correctly. Then, respond naturally to my corrected sentence in a conversational way and keep the chat going. 
-User sentence: "${messageText}"`;
+      const prompt = `You are a friendly English tutor. First, correct the grammar and wording of this sentence, then respond naturally to keep the conversation going. Do not give multiple alternatives, just one corrected sentence and a natural reply.
+
+User: "${messageText}"`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${(Constants as any).expoConfig?.extra?.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${
+          (Constants as any).expoConfig?.extra?.GEMINI_API_KEY
+        }`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -87,14 +109,14 @@ User sentence: "${messageText}"`;
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+      scrollToBottom();
     } catch (error: any) {
       setMessages((prev) =>
         prev.map((msg) => (msg.id === tempId ? { ...msg, error: true } : msg))
       );
-      Alert.alert("Hata", error.message || "Bilinmeyen hata oluştu.");
+      alert(error.message || "An unknown error occurred.");
     } finally {
       setIsAiLoading(false);
-      scrollToBottom();
     }
   }, []);
 
@@ -109,6 +131,8 @@ User sentence: "${messageText}"`;
         <TouchableOpacity
           onLongPress={() => item.error && retrySendMessage(item)}
           disabled={!item.error}
+          activeOpacity={item.error ? 0.6 : 1}
+          style={{ alignSelf: "flex-end", marginVertical: 4 }}
         >
           <View
             style={[
@@ -130,9 +154,10 @@ User sentence: "${messageText}"`;
         </TouchableOpacity>
       );
     }
+
     return (
       <View style={[styles.messageBubble, styles.aiBubble]}>
-        <Text style={styles.aiCorrected}>{item.text}</Text>
+        <Text style={styles.aiText}>{item.text}</Text>
       </View>
     );
   };
@@ -142,7 +167,7 @@ User sentence: "${messageText}"`;
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={100}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <FlatList
           ref={flatListRef}
@@ -186,7 +211,12 @@ User sentence: "${messageText}"`;
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
   container: { flex: 1 },
-  messagesContainer: { paddingHorizontal: 16, paddingBottom: 8 },
+  messagesContainer: {
+    paddingHorizontal: 16,
+    marginTop: 20,
+    paddingTop: 20, // Üstten boşluk
+    paddingBottom: 80, // Input için boşluk
+  },
   messageBubble: {
     maxWidth: "80%",
     borderRadius: 16,
@@ -203,8 +233,11 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     borderBottomLeftRadius: 4,
   },
-  userText: { color: COLORS.white, fontSize: 16 },
-  aiCorrected: {
+  userText: {
+    color: COLORS.white,
+    fontSize: 16,
+  },
+  aiText: {
     color: COLORS.text,
     fontSize: 16,
   },
@@ -213,7 +246,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  errorIcon: { marginLeft: 8 },
+  errorIcon: {
+    marginLeft: 8,
+  },
   inputRow: {
     flexDirection: "row",
     padding: 12,
@@ -240,5 +275,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  sendButtonDisabled: { backgroundColor: COLORS.gray },
+  sendButtonDisabled: {
+    backgroundColor: COLORS.gray,
+  },
 });
