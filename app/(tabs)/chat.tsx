@@ -2,16 +2,17 @@ import Constants from "expo-constants";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  findNodeHandle,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -24,8 +25,8 @@ const COLORS = {
   border: "#ddd",
   error: "#ff4d4f",
   text: "#222",
-  avranBlue: "#67ace9ff", // Avran Mavi eklendi
-  wrongRed: "#FF4136", // Canlı kırmızı
+  avranBlue: "#67ace9ff",
+  wrongRed: "#c53129ff",
 };
 
 type Message = {
@@ -48,17 +49,21 @@ export default function ChatScreen() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const [isTranslating, setIsTranslating] = useState(false);
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
-  const [selectedTranslation, setSelectedTranslation] = useState<string | null>(
-    null
-  );
-  const [isTranslationModalVisible, setIsTranslationModalVisible] =
-    useState(false);
+  const [tooltip, setTooltip] = useState<{
+    word: string;
+    translation: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    isTranslating: boolean;
+  } | null>(null);
   const translationCacheRef = useRef<Map<string, string>>(new Map());
+  const wordRefs = useRef<{ [key: string]: any }>({});
 
   // --- Gemini oran limiti ve retry yardımcıları (ücretsiz plan uyumlu) ---
-  const REQUEST_INTERVAL_MS = 5000; // güvenli aralık: 1 istek / 5 sn
-  const MAX_RETRIES = 3; // 429 için yeniden deneme sayısı
+  const REQUEST_INTERVAL_MS = 5000;
+  const MAX_RETRIES = 3;
   const lastGeminiCallRef = useRef<number>(0);
   const apiKey = (Constants as any).expoConfig?.extra?.GEMINI_API_KEY;
   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -73,7 +78,6 @@ export default function ChatScreen() {
 
     let attempt = 0;
     let backoffMs = 1500;
-    // Basit hız sınırlama: çağrılar arası minimum süreyi bekle
     while (true) {
       const elapsed = Date.now() - lastGeminiCallRef.current;
       if (elapsed < REQUEST_INTERVAL_MS) {
@@ -89,7 +93,7 @@ export default function ChatScreen() {
       if (response.status === 429 || response.status === 503) {
         attempt += 1;
         if (attempt > MAX_RETRIES) {
-          return response; // üst katmanda anlamlı mesaj üretilecek
+          return response;
         }
         await delay(backoffMs);
         backoffMs = Math.min(backoffMs * 2, 10000);
@@ -152,7 +156,6 @@ export default function ChatScreen() {
       const geminiResponseText =
         data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-      // Robustly parse JSON-shaped output, or gracefully degrade to natural text
       const parseFromFences = (text: string): any | null => {
         const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/i;
         const m = text.match(fenceRegex);
@@ -187,7 +190,6 @@ export default function ChatScreen() {
         reply?: string;
         wrongWords?: string[];
       } | null => {
-        // corrected
         const corrMatch = text.match(/"?corrected"?\s*:\s*"([\s\S]*?)"[,}]/i);
         const replyMatch = text.match(/"?reply"?\s*:\s*"([\s\S]*?)"[,}]/i);
         let ww: string[] | undefined;
@@ -199,9 +201,7 @@ export default function ChatScreen() {
             if (Array.isArray(arr)) {
               ww = arr.filter((x: any) => typeof x === "string");
             }
-          } catch {
-            /* ignore */
-          }
+          } catch {}
         }
         if (corrMatch || replyMatch || ww) {
           return {
@@ -218,17 +218,13 @@ export default function ChatScreen() {
       let wrongWords: string[] | undefined = undefined;
 
       let parsed: any | null = null;
-      // 1) strict JSON
       try {
         parsed = JSON.parse(geminiResponseText);
       } catch {
         parsed = null;
       }
-      // 2) code fence
       if (!parsed) parsed = parseFromFences(geminiResponseText);
-      // 3) braces slice
       if (!parsed) parsed = parseFromBraces(geminiResponseText);
-      // 4) loose regex
       if (!parsed) parsed = parseLoosely(geminiResponseText);
 
       if (parsed && (parsed.corrected || parsed.reply || parsed.wrongWords)) {
@@ -240,10 +236,8 @@ export default function ChatScreen() {
             .filter((w: string) => w);
         }
       } else {
-        // If the text looks like JSON but couldn't be parsed, avoid showing braces to user
         const looksJson = /\{\s*"?\w+"?\s*:/.test(geminiResponseText);
         if (looksJson) {
-          // attempt to clean to readable text
           reply = geminiResponseText
             .replace(/\{\s*|\s*\}|\"/g, "")
             .replace(/\b(corrected|reply|wrongWords)\s*:/gi, "")
@@ -284,7 +278,6 @@ export default function ChatScreen() {
     handleSend(failedMessage.text);
   };
 
-  // Helpers for tokenization and normalization
   const splitIntoParts = (text: string) => {
     return text.split(/(\b[\w']+\b)/g);
   };
@@ -342,15 +335,30 @@ export default function ChatScreen() {
     }
   };
 
-  const handleWordPress = async (word: string) => {
-    setSelectedWord(word);
-    setIsTranslationModalVisible(true);
-    setIsTranslating(true);
-    const tr = await translateWord(word);
-    setSelectedTranslation(tr);
-    setIsTranslating(false);
+  // Tooltip gösterme fonksiyonu
+  const handleWordPress = async (word: string, idx: number) => {
+    const ref = wordRefs.current[`${word}-${idx}`];
+    if (!ref) return;
+    const nodeHandle = findNodeHandle(ref);
+    if (nodeHandle == null) return;
+    UIManager.measure(nodeHandle, async (x, y, width, height, pageX, pageY) => {
+      setTooltip({
+        word,
+        translation: "",
+        x: pageX,
+        y: pageY,
+        width,
+        height,
+        isTranslating: true,
+      });
+      const tr = await translateWord(word);
+      setTooltip((prev) =>
+        prev ? { ...prev, translation: tr, isTranslating: false } : prev
+      );
+    });
   };
 
+  // AI mesajındaki kelimeleri Pressable ile sarmala ve ref ata
   const renderAiInteractiveText = (text: string) => {
     const parts = splitIntoParts(text);
     return (
@@ -359,16 +367,48 @@ export default function ChatScreen() {
           const isWord = /\b[\w']+\b/.test(part);
           if (!isWord) return <Text key={idx}>{part}</Text>;
           return (
-            <Text
+            <TouchableOpacity
               key={idx}
-              style={styles.aiWord}
-              onPress={() => handleWordPress(part)}
+              ref={(ref) => {
+                wordRefs.current[`${part}-${idx}`] = ref;
+              }}
+              onPress={() => handleWordPress(part, idx)}
+              activeOpacity={0.6}
             >
-              {part}
-            </Text>
+              <Text style={styles.aiWord}>{part}</Text>
+            </TouchableOpacity>
           );
         })}
       </Text>
+    );
+  };
+
+  // Tooltip baloncuğu
+  const renderTooltip = () => {
+    if (!tooltip) return null;
+    return (
+      <View
+        style={[
+          styles.tooltip,
+          {
+            position: "absolute",
+            left: tooltip.x,
+            top: tooltip.y + tooltip.height + 4,
+            zIndex: 100,
+          },
+        ]}
+      >
+        <Text style={styles.tooltipWord}>{tooltip.word}</Text>
+        <Text style={styles.tooltipTranslation}>
+          {tooltip.isTranslating ? "Çeviriliyor..." : tooltip.translation}
+        </Text>
+        <TouchableOpacity
+          style={styles.tooltipClose}
+          onPress={() => setTooltip(null)}
+        >
+          <Text style={styles.tooltipCloseText}>Kapat</Text>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -451,33 +491,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
 
-        <Modal
-          visible={isTranslationModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsTranslationModalVisible(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.translationModal}>
-              <Text style={styles.modalTitle}>Kelime Anlamı</Text>
-              <Text style={styles.modalWord}>{selectedWord}</Text>
-              <View style={{ height: 8 }} />
-              {isTranslating ? (
-                <ActivityIndicator />
-              ) : (
-                <Text style={styles.modalTranslation}>
-                  {selectedTranslation}
-                </Text>
-              )}
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setIsTranslationModalVisible(false)}
-              >
-                <Text style={styles.modalCloseText}>Kapat</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        {renderTooltip()}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -489,8 +503,8 @@ const styles = StyleSheet.create({
   messagesContainer: {
     paddingHorizontal: 16,
     marginTop: 20,
-    paddingTop: 20, // Üstten boşluk
-    paddingBottom: 80, // Input için boşluk
+    paddingTop: 20,
+    paddingBottom: 80,
   },
   messageBubble: {
     maxWidth: "80%",
@@ -513,8 +527,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   userTextWrong: {
-    backgroundColor: COLORS.avranBlue, // Avran Mavi arka plan
-    color: COLORS.wrongRed, // Kırmızı yazı
+    color: COLORS.wrongRed,
     borderRadius: 6,
     paddingHorizontal: 4,
     fontWeight: "bold",
@@ -522,6 +535,8 @@ const styles = StyleSheet.create({
   aiText: {
     color: COLORS.text,
     fontSize: 16,
+    flexWrap: "wrap",
+    flexDirection: "row",
   },
   aiWord: {
     color: COLORS.text,
@@ -564,42 +579,40 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     backgroundColor: COLORS.gray,
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "flex-end",
-  },
-  translationModal: {
-    backgroundColor: COLORS.white,
-    padding: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  modalWord: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  modalTranslation: {
-    fontSize: 16,
-    color: COLORS.text,
-  },
-  modalCloseButton: {
-    alignSelf: "flex-end",
-    marginTop: 16,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  tooltip: {
+    backgroundColor: "#fff",
     borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    minWidth: 120,
+    maxWidth: 220,
   },
-  modalCloseText: {
-    color: COLORS.white,
-    fontWeight: "600",
+  tooltipWord: {
+    fontWeight: "bold",
+    color: COLORS.primary,
+    marginBottom: 4,
+    fontSize: 16,
+  },
+  tooltipTranslation: {
+    color: COLORS.text,
+    fontSize: 15,
+    marginBottom: 8,
+  },
+  tooltipClose: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+  },
+  tooltipCloseText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
 });
