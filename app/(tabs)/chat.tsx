@@ -20,14 +20,18 @@ type Message = {
   id: string;
   text: string;
   isUser: boolean;
-  corrected?: string;
-  explanation?: string;
   error?: boolean;
 };
 
 export default function ChatScreen() {
   const [inputText, setInputText] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "ai-intro",
+      text: "Let's start chatting in English! What would you like to talk about today?",
+      isUser: false,
+    },
+  ]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
@@ -36,6 +40,8 @@ export default function ChatScreen() {
   };
 
   const handleSend = useCallback(async (messageText: string) => {
+    if (!messageText.trim()) return;
+
     const tempId = `temp-${Date.now()}`;
     const userMessage: Message = {
       id: tempId,
@@ -45,12 +51,13 @@ export default function ChatScreen() {
 
     setMessages((prev) => [...prev, userMessage]);
     scrollToBottom();
+    setInputText(""); // mesaj gönderildikten sonra input temizlensin
     setIsAiLoading(true);
 
     try {
-      const prompt = `Correct the following English sentence and provide an explanation for the correction. Respond in JSON format with 'corrected' and 'explanation' fields.
-Sentence: '${messageText}'`;
-      // expoconfig hatasını düzelteceğim
+      const prompt = `You are my friendly English conversation partner. First, correct my sentence without giving multiple alternatives—just rewrite it correctly. Then, respond naturally to my corrected sentence in a conversational way and keep the chat going. 
+User sentence: "${messageText}"`;
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${(Constants as any).expoConfig?.extra?.GEMINI_API_KEY}`,
         {
@@ -73,23 +80,10 @@ Sentence: '${messageText}'`;
       const geminiResponseText =
         data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-      let correctedText = "";
-      let explanationText = "";
-
-      try {
-        const parsedResponse = JSON.parse(geminiResponseText);
-        correctedText = parsedResponse.corrected || "";
-        explanationText = parsedResponse.explanation || "";
-      } catch {
-        correctedText = geminiResponseText;
-      }
-
       const aiMessage: Message = {
         id: `ai-${Date.now()}`,
-        text: "",
+        text: geminiResponseText.trim(),
         isUser: false,
-        corrected: correctedText,
-        explanation: explanationText,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -138,12 +132,7 @@ Sentence: '${messageText}'`;
     }
     return (
       <View style={[styles.messageBubble, styles.aiBubble]}>
-        {item.corrected && (
-          <Text style={styles.aiCorrected}>{item.corrected}</Text>
-        )}
-        {item.explanation && (
-          <Text style={styles.aiExplanation}>{item.explanation}</Text>
-        )}
+        <Text style={styles.aiCorrected}>{item.text}</Text>
       </View>
     );
   };
@@ -168,7 +157,7 @@ Sentence: '${messageText}'`;
           <TextInput
             value={inputText}
             onChangeText={setInputText}
-            placeholder="İngilizce cümle yazın..."
+            placeholder="Type in English..."
             placeholderTextColor={COLORS.gray}
             style={styles.input}
             editable={!isAiLoading}
@@ -217,11 +206,8 @@ const styles = StyleSheet.create({
   userText: { color: COLORS.white, fontSize: 16 },
   aiCorrected: {
     color: COLORS.text,
-    fontWeight: "600",
     fontSize: 16,
-    marginBottom: 6,
   },
-  aiExplanation: { color: COLORS.text, fontSize: 14 },
   errorBubble: {
     backgroundColor: COLORS.error,
     flexDirection: "row",
