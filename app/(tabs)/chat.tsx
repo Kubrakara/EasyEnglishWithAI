@@ -48,7 +48,6 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const [isTranslating, setIsTranslating] = useState(false);
   const [tooltip, setTooltip] = useState<{
     word: string;
     translation: string;
@@ -156,6 +155,7 @@ export default function ChatScreen() {
       const geminiResponseText =
         data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
+      // JSON parse denemeleri
       const parseFromFences = (text: string): any | null => {
         const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/i;
         const m = text.match(fenceRegex);
@@ -251,13 +251,10 @@ export default function ChatScreen() {
         );
       }
 
-      const composedText = corrected
-        ? `Correction: ${corrected}\n\n${reply}`
-        : reply;
-
+      // AI cevabını JSON string olarak saklıyoruz
       const aiMessage: Message = {
         id: `ai-${Date.now()}`,
-        text: composedText.trim(),
+        text: JSON.stringify({ corrected, reply }),
         isUser: false,
       };
 
@@ -442,9 +439,28 @@ export default function ChatScreen() {
       );
     }
 
+    // AI mesajıysa JSON parse edip ayrı ayrı göster
+    let corrected = "";
+    let reply = item.text;
+    try {
+      const parsed = JSON.parse(item.text);
+      corrected = parsed.corrected ?? "";
+      reply = parsed.reply ?? item.text;
+    } catch {}
+
     return (
       <View style={[styles.messageBubble, styles.aiBubble]}>
-        {renderAiInteractiveText(item.text)}
+        {corrected ? (
+  <>
+    <Text style={styles.aiCorrectionTitle}>✅ Correction:</Text>
+    {renderAiInteractiveText(corrected)}
+    <Text style={styles.aiReplyTitle}>💬 Reply:</Text>
+    {renderAiInteractiveText(reply)}
+  </>
+    ) : (
+    renderAiInteractiveText(reply)
+    )}
+
       </View>
     );
   };
@@ -542,6 +558,27 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     textDecorationLine: "underline",
   },
+  aiCorrectionTitle: {
+    fontWeight: "bold",
+    color: COLORS.primary,
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  aiCorrectionText: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: COLORS.text,
+  },
+  aiReplyTitle: {
+    fontWeight: "bold",
+    color: COLORS.primary,
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  aiReplyText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
   errorBubble: {
     backgroundColor: COLORS.error,
     flexDirection: "row",
@@ -616,3 +653,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
