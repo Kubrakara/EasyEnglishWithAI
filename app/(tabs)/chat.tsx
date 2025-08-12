@@ -1,6 +1,6 @@
 import { COLORS } from "@/theme";
-import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -50,9 +50,9 @@ export default function ChatScreen() {
     try {
       const prompt = `Correct the following English sentence and provide an explanation for the correction. Respond in JSON format with 'corrected' and 'explanation' fields.
 Sentence: '${messageText}'`;
-// expoconfig hatasını düzelteceğim
+      // expoconfig hatasını düzelteceğim
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${Constants.expoConfig?.extra?.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${(Constants as any).expoConfig?.extra?.GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
