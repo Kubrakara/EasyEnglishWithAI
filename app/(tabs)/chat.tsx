@@ -131,7 +131,10 @@ export default function ChatScreen() {
     setInputText("");
     scrollToBottom();
     setIsAiLoading(true);
-
+    
+    //Burada API'ye istek atıyoruz
+    // ve gelen cevabı işliyoruz
+    
     try {
       const prompt = `You are a friendly English tutor. Return ONLY valid JSON with the following shape and nothing else (no markdown):\n\n{\n  "corrected": string,\n  "reply": string,\n  "wrongWords": string[]\n}\n\nRules:\n- corrected: provide a single corrected version of the user's sentence.\n- reply: a natural, friendly continuation in English to keep the conversation going.\n- wrongWords: array of individual words from the user's ORIGINAL message that are misspelled or ungrammatical and should be highlighted. Exclude punctuation, use lowercase, include each word at most once.\n\nUser: "${messageText}"`;
 
@@ -150,7 +153,10 @@ export default function ChatScreen() {
         }
         throw new Error(`API Error: ${response.status} - ${message}`);
       }
-
+      // API cevabını işleme
+      //burada API'den gelen cevabı JSON olarak alıyoruz
+      // ve içindeki metni çıkarıyoruz
+      // JSON parse denemeleri yapacağız
       const data = await response.json();
       const geminiResponseText =
         data.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -307,7 +313,7 @@ export default function ChatScreen() {
       </Text>
     );
   };
-
+  
   const translateWord = async (word: string): Promise<string> => {
     try {
       const cached = translationCacheRef.current.get(word.toLowerCase());
