@@ -5,26 +5,35 @@ import { saveTokens } from "@/utils/authTokens";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function RegisterScreen() {
   const router = useRouter();
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const validateInputs = () => {
+    if (!name.trim()) {
+      Alert.alert("Kayıt Başarısız", "Kullanıcı adı boş olamaz.");
+      return false;
+    }
+    if (name.trim().length < 2) {
+      Alert.alert("Kayıt Başarısız", "Kullanıcı adı en az 2 karakter olmalıdır.");
+      return false;
+    }
     if (password !== confirmPassword) {
       Alert.alert("Kayıt Başarısız", "Şifreler eşleşmiyor. Lütfen kontrol edin.");
       return false;
@@ -52,7 +61,11 @@ export default function RegisterScreen() {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ 
+          name: name.trim(), 
+          email: email.trim(), 
+          password 
+        }),
       });
 
       const data = await response.json();
@@ -61,21 +74,25 @@ export default function RegisterScreen() {
         throw new Error(data.message || "Kayıt işlemi sırasında bir hata oluştu.");
       }
 
-      // Otomatik giriş için token'ları kaydet
-      if (data.accessToken && data.refreshToken) {
-        await saveTokens(data.accessToken, data.refreshToken);
-      } else {
-        // Token yoksa, kullanıcıyı bilgilendir ve login sayfasına yönlendir
-        Alert.alert(
-          "Kayıt Başarılı",
-          "Kaydınız tamamlandı. Lütfen giriş yapın."
-        );
-        router.replace("/(auth)/login");
-        return;
-      }
-
-      // Başarılı kayıt ve token kaydı sonrası ana ekrana yönlendir
-      router.replace("/(tabs)/home");
+      // Kayıt başarılı - kullanıcıyı bilgilendir ve login sayfasına yönlendir
+      Alert.alert(
+        "Kayıt Başarılı! 🎉",
+        "Hesabınız başarıyla oluşturuldu. Lütfen giriş yapın.",
+        [
+          {
+            text: "Giriş Yap",
+            onPress: () => {
+              // Form'u temizle
+              setName("");
+              setEmail("");
+              setPassword("");
+              setConfirmPassword("");
+              // Login sayfasına yönlendir
+              router.replace("/(auth)/login");
+            }
+          }
+        ]
+      );
 
     } catch (error: any) {
       let errorMessage = "Bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
@@ -105,6 +122,17 @@ export default function RegisterScreen() {
           <Text style={styles.subtitle}>
             Yeni bir dünya keşfetmek için ilk adımı at.
           </Text>
+
+          <TextInput
+            placeholder="Kullanıcı Adı (en az 2 karakter)"
+            placeholderTextColor={COLORS.gray}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            autoComplete="name"
+            style={styles.input}
+            editable={!loading}
+          />
 
           <TextInput
             placeholder="E-posta"

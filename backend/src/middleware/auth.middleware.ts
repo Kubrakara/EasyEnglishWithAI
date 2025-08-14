@@ -16,10 +16,22 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
 
   try {
     const payload = verifyAccessToken(token) as { id: string; email: string };
+    
+    if (!payload || !payload.id || !payload.email) {
+      return res.status(401).json({ message: 'Geçersiz token formatı.' });
+    }
+    
     req.user = payload;
     next();
-  } catch (error) {
-    // If the token is expired or invalid
-    return res.status(403).json({ message: 'Geçersiz veya süresi dolmuş token.' });
+  } catch (error: any) {
+    console.error("Auth middleware error:", error);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token süresi dolmuş. Lütfen tekrar giriş yapın.' });
+    } else if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Geçersiz token.' });
+    }
+    
+    return res.status(401).json({ message: 'Token doğrulanamadı.' });
   }
 };

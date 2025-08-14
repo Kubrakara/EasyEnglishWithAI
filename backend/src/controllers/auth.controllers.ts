@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import supabase from "../supabaseClient";
-import { signAccessToken, signRefreshToken } from "../utils/jwt";
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../utils/jwt";
 
 export const register = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { email, password, name } = req.body;
   if (!email || !password) {
     return res.status(400).json({ message: "E-posta ve şifre alanları zorunludur." });
   }
@@ -28,9 +28,12 @@ export const register = async (req: Request, res: Response) => {
         throw new Error("Kullanıcı oluşturuldu ancak alınamadı.");
     }
 
-    // 2. Add user to public 'users' table (if you have one for profiles)
-    // This step is optional and depends on your database schema.
-    const { error: insertError } = await supabase.from('users').insert({ id: user.id, email: user.email });
+    // 2. Add user to public 'users' table with name
+    const { error: insertError } = await supabase.from('users').insert({ 
+      id: user.id, 
+      email: user.email,
+      name: name || email.split('@')[0] // Eğer name yoksa email'den türet
+    });
 
     if (insertError) {
         // If this fails, you might want to delete the auth user to keep things consistent
@@ -38,13 +41,11 @@ export const register = async (req: Request, res: Response) => {
         throw insertError;
     }
 
-    // 3. Generate tokens for auto-login
-    const payload = { id: user.id, email: user.email };
-    const accessToken = signAccessToken(payload);
-    const refreshToken = signRefreshToken(payload);
-
-    // 4. Send tokens to the client
-    res.status(201).json({ accessToken, refreshToken });
+    // 3. Kayıt başarılı mesajı döndür
+    res.status(201).json({ 
+      message: "Kullanıcı başarıyla oluşturuldu.",
+      userId: user.id 
+    });
 
   } catch (error: any) {
     console.error("Register Error:", error);
@@ -80,5 +81,32 @@ export const login = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Login Error:", error);
     res.status(500).json({ message: error.message || "Sunucu hatası oluştu." });
+  }
+};
+
+// Add refresh token endpoint
+export const refreshToken = async (req: Request, res: Response) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ message: "Refresh token gerekli." });
+  }
+
+  try {
+    // Verify the refresh token
+    const payload = verifyRefreshToken(refreshToken);
+    
+    if (!payload || typeof payload === 'string') {
+      return res.status(401).json({ message: "Geçersiz refresh token." });
+    }
+
+    // Generate new access token
+    const newAccessToken = signAccessToken({ id: payload.id, email: payload.email });
+    
+    res.status(200).json({ accessToken: newAccessToken });
+
+  } catch (error: any) {
+    console.error("Refresh token error:", error);
+    res.status(401).json({ message: "Geçersiz veya süresi dolmuş token." });
   }
 };

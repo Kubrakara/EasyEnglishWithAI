@@ -1,6 +1,6 @@
 import { getTokens, refreshAccessToken, clearTokens } from "./authTokens";
 import { Alert } from "react-native";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 
 export async function fetchWithToken(url: string, options: RequestInit = {}) {
   let { accessToken } = await getTokens();
@@ -37,5 +37,5 @@ export async function fetchWithToken(url: string, options: RequestInit = {}) {
 async function handleLogout() {
   await clearTokens();
   Alert.alert("Oturum Sonlandı", "Lütfen tekrar giriş yapınız.");
-  router.replace("/login");
+  // Router'ı burada kullanamayız, bu yüzden profile sayfasında handle edeceğiz
 }

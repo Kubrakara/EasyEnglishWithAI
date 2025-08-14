@@ -25,7 +25,7 @@ const signToken = (payload: object, secret: string, options: SignOptions): strin
  * @returns The signed access token.
  */
 export const signAccessToken = (payload: object): string => {
-  return signToken(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+  return signToken(payload, ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
 };
 
 /**
@@ -34,7 +34,7 @@ export const signAccessToken = (payload: object): string => {
  * @returns The signed refresh token.
  */
 export const signRefreshToken = (payload: object): string => {
-  return signToken(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+  return signToken(payload, REFRESH_TOKEN_SECRET, { expiresIn: '30d' });
 };
 
 /**

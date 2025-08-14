@@ -16,8 +16,10 @@ import {
 } from "react-native";
 
 interface UserProfile {
+  id: string;
   name: string;
   email: string;
+  createdAt: string;
 }
 
 const ProfileSkeleton = () => (
@@ -46,16 +48,30 @@ export default function ProfileScreen() {
     try {
       const response = await fetchWithToken(`${API_BASE_URL}/api/users/me`);
       if (!response.ok) {
-        throw new Error("Kullanıcı bilgileri alınamadı.");
+        const errorData = await response.json();
+        if (response.status === 401 || response.status === 403) {
+          // Token hatası - kullanıcıyı login sayfasına yönlendir
+          await clearTokens();
+          router.replace("/(auth)/login");
+          return;
+        }
+        throw new Error(errorData.message || "Kullanıcı bilgileri alınamadı.");
       }
       const data = await response.json();
       setUser(data);
     } catch (e: any) {
+      console.error("Profile fetch error:", e);
+      if (e.message.includes("token") || e.message.includes("Token")) {
+        // Token hatası - kullanıcıyı login sayfasına yönlendir
+        await clearTokens();
+        router.replace("/(auth)/login");
+        return;
+      }
       setError(e.message || "Bir hata oluştu.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchUser();
@@ -98,6 +114,15 @@ export default function ProfileScreen() {
     );
   }
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('tr-TR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -111,6 +136,11 @@ export default function ProfileScreen() {
         <View style={styles.infoBox}>
           <Text style={styles.label}>E-posta</Text>
           <Text style={styles.value}>{user.email}</Text>
+        </View>
+
+        <View style={styles.infoBox}>
+          <Text style={styles.label}>Hesap Oluşturma Tarihi</Text>
+          <Text style={styles.value}>{formatDate(user.createdAt)}</Text>
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
