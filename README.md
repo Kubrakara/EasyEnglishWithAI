@@ -50,3 +50,5 @@ Join our community of developers creating universal apps.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 
 EasyEnglish yapay zeka entegreli chati sayesinde dinamik bir şekilde ingilizceyi öğrenmemize yarayan bir mobil uygulama.
+
+Bugün değşikliik yapamadım 17 ağustos
